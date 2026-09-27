@@ -1,6 +1,14 @@
-import { notFound } from "next/navigation";
+import Link from "next/link";
+import {
+  addPlayer,
+  deleteTeam,
+  leaveTeam,
+  requestTeamAccess,
+} from "./actions";
 import { requireMembership } from "@/lib/auth";
-import { addPlayer, requestTeamAccess } from "./actions";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type TeamMember = {
   id: string;
@@ -20,32 +28,24 @@ export default async function TeamPage({
   const [
     { data: team },
     { data: players },
-    { data: canManageTeam, error: permissionError },
-    { data: members, error: membersError },
-    { data: currentMembership, error: currentMembershipError },
-    { data: pendingRequest, error: pendingRequestError },
+    { data: currentMembership },
+    { data: pendingRequest },
+    { data: members },
   ] = await Promise.all([
     supabase
       .from("teams")
-      .select("*")
+      .select("id, name, short_name, city, color, organization_id")
       .eq("id", id)
       .eq("organization_id", membership.organization_id)
       .single(),
 
     supabase
       .from("players")
-      .select("*")
+      .select(
+        "id, first_name, last_name, jersey_number, position, active",
+      )
       .eq("team_id", id)
-      .eq("active", true)
       .order("jersey_number"),
-
-    supabase.rpc("can_manage_team", {
-      p_team_id: id,
-    }),
-
-    supabase.rpc("get_team_members", {
-      p_team_id: id,
-    }),
 
     supabase
       .from("team_memberships")
@@ -61,57 +61,124 @@ export default async function TeamPage({
       .eq("user_id", user.id)
       .eq("status", "pending")
       .maybeSingle(),
+
+    supabase.rpc("get_team_members", {
+      p_team_id: id,
+    }),
   ]);
 
   if (!team) {
-    notFound();
-  }
-
-  if (permissionError) {
-    console.error("Permission check failed:", permissionError);
-  }
-
-  if (membersError) {
-    console.error("Team members load failed:", membersError);
-  }
-
-  if (currentMembershipError) {
-    console.error(
-      "Team membership check failed:",
-      currentMembershipError
+    return (
+      <section className="card">
+        <h1>Team not found</h1>
+        <p className="muted">
+          This team does not exist or is not in your organization.
+        </p>
+        <Link href="/dashboard/teams" className="button secondary">
+          Back to Teams
+        </Link>
+      </section>
     );
   }
 
-  if (pendingRequestError) {
-    console.error(
-      "Access request check failed:",
-      pendingRequestError
-    );
-  }
+  const typedMembers = (members ?? []) as TeamMember[];
 
-  const canEdit = Boolean(canManageTeam);
-  const hasTeamAccess = Boolean(currentMembership);
-  const hasPendingRequest = Boolean(pendingRequest);
-
-  const action = addPlayer.bind(null, id);
-  const requestAccessAction = requestTeamAccess.bind(null, id);
+  const isOrgManager = ["owner", "admin"].includes(membership.role);
+  const isTeamManager = currentMembership?.role === "manager";
+  const canManageTeam = isOrgManager || isTeamManager;
+  const canDeleteTeam = canManageTeam;
 
   return (
     <>
-      {/* TEAM HEADER */}
       <div className="pageHead">
         <div>
-          <p className="eyebrow">{team.city || "Team roster"}</p>
+          <p className="eyebrow">Team</p>
           <h1>{team.name}</h1>
+          <p className="muted">
+            {team.city || "City not set"}
+            {team.short_name ? ` · ${team.short_name}` : ""}
+          </p>
         </div>
+        <Link href="/dashboard/teams" className="button secondary">
+          All Teams
+        </Link>
       </div>
 
-      {/* ADD PLAYER */}
-      {canEdit && (
-        <section className="card">
-          <h2>Add player</h2>
+      <section
+        className="card"
+        style={{
+          marginBottom: 18,
+          borderColor: "#3b4250",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <p className="eyebrow">TEAM ACTIONS</p>
+            <h2 style={{ marginBottom: 6 }}>Manage this team</h2>
+            <p className="muted">
+              {currentMembership
+                ? `Your team access: ${currentMembership.role}`
+                : "You are not currently a team member."}
+            </p>
+          </div>
 
-          <form action={action} className="form">
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            {currentMembership && (
+              <form action={leaveTeam.bind(null, id)}>
+                <button type="submit" className="button secondary">
+                  Leave Team
+                </button>
+              </form>
+            )}
+
+            {canDeleteTeam && (
+              <form action={deleteTeam.bind(null, id)}>
+                <button
+                  type="submit"
+                  className="button"
+                  style={{
+                    background: "#3b0b16",
+                    borderColor: "#7f1d35",
+                    color: "#ffb4c5",
+                  }}
+                >
+                  Delete Team
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {canManageTeam && (
+        <section className="card" style={{ marginBottom: 18 }}>
+          <p className="eyebrow">ROSTER</p>
+          <h2>Add Player</h2>
+
+          <form
+            action={addPlayer.bind(null, id)}
+            className="form"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+              gap: 12,
+            }}
+          >
             <label>
               First name
               <input name="firstName" required />
@@ -123,7 +190,7 @@ export default async function TeamPage({
             </label>
 
             <label>
-              Jersey number
+              Jersey #
               <input
                 name="jerseyNumber"
                 type="number"
@@ -135,147 +202,133 @@ export default async function TeamPage({
 
             <label>
               Position
-              <select name="position">
-                {[
-                  "P",
-                  "C",
-                  "1B",
-                  "2B",
-                  "3B",
-                  "SS",
-                  "LF",
-                  "CF",
-                  "RF",
-                  "DP",
-                  "UTIL",
-                ].map((position) => (
-                  <option key={position}>{position}</option>
-                ))}
-              </select>
+              <input name="position" placeholder="SS, CF, P..." />
             </label>
 
-            <button className="button primary">Add player</button>
+            <div style={{ display: "flex", alignItems: "end" }}>
+              <button className="button primary" type="submit">
+                Add Player
+              </button>
+            </div>
           </form>
         </section>
       )}
 
-      {/* TEAM ACCESS STATUS */}
-      {!canEdit && hasTeamAccess && (
-        <section className="card">
-          <p className="notice">
-            You have {currentMembership?.role} access to this team.
+      {!currentMembership && pendingRequest && (
+        <section className="card" style={{ marginBottom: 18 }}>
+          <p className="eyebrow">ACCESS</p>
+          <h2>Request pending</h2>
+          <p className="muted">
+            Your request to join this team is waiting for approval.
           </p>
         </section>
       )}
 
-      {!canEdit && !hasTeamAccess && hasPendingRequest && (
-        <section className="card">
-          <h2>Team Access</h2>
-          <p className="notice">
-            Your request for access to this team is pending.
-          </p>
-        </section>
-      )}
-
-      {!canEdit && !hasTeamAccess && !hasPendingRequest && (
-        <section className="card">
-          <h2>Team Access</h2>
-
-          <p className="muted" style={{ marginBottom: 12 }}>
-            You are a member of this organization but do not have
-            access to this team yet.
+      {!currentMembership && !pendingRequest && !canManageTeam && (
+        <section className="card" style={{ marginBottom: 18 }}>
+          <p className="eyebrow">ACCESS</p>
+          <h2>Join this team</h2>
+          <p className="muted">
+            You can request access from the team manager.
           </p>
 
-          <form action={requestAccessAction}>
-            <button className="button primary">
+          <form action={requestTeamAccess.bind(null, id)}>
+            <button className="button primary" type="submit">
               Request Access
             </button>
           </form>
         </section>
       )}
 
-      {/* BOTTOM: TEAM MEMBERS + PLAYERS */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)",
           gap: 18,
-          marginTop: 18,
-          alignItems: "start",
         }}
       >
-        {/* TEAM MEMBERS */}
         <section className="card">
-          <div className="pageHead">
+          <p className="eyebrow">TEAM MEMBERS</p>
+          <h2>Team Members</h2>
+
+          {typedMembers.length ? (
             <div>
-              <p className="eyebrow">Access</p>
-              <h2>Team Members</h2>
-            </div>
-          </div>
-
-          {members?.length ? (
-            <div
-              style={{
-                display: "grid",
-                gap: 10,
-                marginTop: 12,
-              }}
-            >
-              {members.map((member: TeamMember) => (
-                <article className="card" key={member.id}>
-                  <strong>{member.display_name}</strong>
-
-                  <p className="muted" style={{ marginTop: 6 }}>
-                    Role: {member.role}
-                  </p>
-                </article>
+              {typedMembers.map((member) => (
+                <div
+                  key={member.id}
+                  style={{
+                    padding: "12px 0",
+                    borderBottom: "1px solid #2b3038",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <strong>{member.display_name || "Team member"}</strong>
+                  <span className="muted">{member.role}</span>
+                </div>
               ))}
             </div>
           ) : (
-            <p className="notice">
-              No members have been assigned to this team.
-            </p>
+            <p className="muted">No team members yet.</p>
           )}
         </section>
 
-        {/* PLAYERS */}
         <section className="card">
-          <div className="pageHead">
-            <div>
-              <p className="eyebrow">Roster</p>
-              <h2>Players</h2>
-            </div>
-          </div>
+          <p className="eyebrow">PLAYERS</p>
+          <h2>Players</h2>
 
           {players?.length ? (
-            <div
-              style={{
-                display: "grid",
-                gap: 10,
-                marginTop: 12,
-              }}
-            >
+            <div>
               {players.map((player) => (
-                <article className="card" key={player.id}>
-                  <div className="teamRow">
-                    <span className="teamCode">
-                      #{player.jersey_number}
-                    </span>
-
+                <div
+                  key={player.id}
+                  style={{
+                    padding: "12px 0",
+                    borderBottom: "1px solid #2b3038",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <div>
                     <strong>
-                      {player.first_name} {player.last_name}
+                      #{player.jersey_number} {player.first_name}{" "}
+                      {player.last_name}
                     </strong>
-
-                    <b>{player.position}</b>
+                    <div className="muted">
+                      {player.position || "Position not set"}
+                      {!player.active ? " · Inactive" : ""}
+                    </div>
                   </div>
-                </article>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="empty">No players on this roster.</div>
+            <p className="muted">No players on the roster.</p>
           )}
         </section>
       </div>
+
+      <style>{`
+        @media (max-width: 800px) {
+          .pageHead {
+            gap: 12px;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .card {
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 900px) {
+          .card + .card {
+            margin-top: 0;
+          }
+        }
+      `}</style>
     </>
   );
 }

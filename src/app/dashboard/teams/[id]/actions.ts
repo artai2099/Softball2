@@ -1,70 +1,105 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireMembership } from "@/lib/auth";
 
-export async function addPlayer(
+async function getTeamAccess(
+  supabase: any,
+  userId: string,
   teamId: string,
-  formData: FormData
 ) {
-  const { supabase, membership } = await requireMembership();
-
-  const { data: canEdit, error: permissionError } =
-    await supabase.rpc("can_manage_team", {
-      p_team_id: teamId,
-    });
-
-  if (permissionError || !canEdit) {
-    throw new Error("You do not have permission to edit this roster.");
-  }
-
-  const { data: team } = await supabase
+  const { data: team, error: teamError } = await supabase
     .from("teams")
-    .select("id")
+    .select("id, organization_id")
     .eq("id", teamId)
-    .eq("organization_id", membership.organization_id)
     .single();
 
-  if (!team) {
+  if (teamError || !team) {
     throw new Error("Team not found.");
   }
 
-  const firstName = String(
-    formData.get("firstName") || ""
-  ).trim();
+  const { data: orgMember, error: orgError } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", team.organization_id)
+    .eq("user_id", userId)
+    .maybeSingle();
 
-  const lastName = String(
-    formData.get("lastName") || ""
-  ).trim();
-
-  const jerseyNumber = Number(
-    formData.get("jerseyNumber")
-  );
-
-  const position = String(
-    formData.get("position") || ""
-  ).trim();
-
-  if (!firstName || !lastName || !Number.isInteger(jerseyNumber)) {
-    throw new Error("Valid player information is required.");
+  if (orgError) {
+    throw new Error(orgError.message);
   }
 
-  const { error } = await supabase
-    .from("players")
-    .insert({
-      team_id: teamId,
-      first_name: firstName,
-      last_name: lastName,
-      jersey_number: jerseyNumber,
-      position,
-    });
+  const { data: teamMember, error: memberError } = await supabase
+    .from("team_memberships")
+    .select("id, role")
+    .eq("team_id", teamId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (memberError) {
+    throw new Error(memberError.message);
+  }
+
+  return {
+    team,
+    orgRole: orgMember?.role ?? null,
+    teamRole: teamMember?.role ?? null,
+  };
+}
+
+export async function addPlayer(teamId: string, formData: FormData) {
+  const { supabase, user } = await requireMembership();
+
+  const { orgRole, teamRole } = await getTeamAccess(
+    supabase,
+    user.id,
+    teamId,
+  );
+
+  const canManage =
+    ["owner", "admin"].includes(orgRole ?? "") ||
+    teamRole === "manager";
+
+  if (!canManage) {
+    throw new Error("You do not have permission to manage this team.");
+  }
+
+  const firstName = String(formData.get("firstName") || "").trim();
+  const lastName = String(formData.get("lastName") || "").trim();
+  const jerseyNumber = Number(formData.get("jerseyNumber"));
+  const position = String(formData.get("position") || "").trim();
+
+  if (!firstName || !lastName) {
+    throw new Error("First and last name are required.");
+  }
+
+  if (
+    !Number.isInteger(jerseyNumber) ||
+    jerseyNumber < 0 ||
+    jerseyNumber > 999
+  ) {
+    throw new Error("Jersey number must be between 0 and 999.");
+  }
+
+  const { error } = await supabase.from("players").insert({
+    team_id: teamId,
+    first_name: firstName,
+    last_name: lastName,
+    jersey_number: jerseyNumber,
+    position,
+    active: true,
+  });
 
   if (error) {
     throw new Error(error.message);
   }
 
   revalidatePath(`/dashboard/teams/${teamId}`);
-}export async function requestTeamAccess(teamId: string) {
+  revalidatePath("/dashboard/teams");
+}
+
+export async function requestTeamAccess(teamId: string) {
   const { supabase, user, membership } = await requireMembership();
 
   const { data: team, error: teamError } = await supabase
@@ -92,7 +127,7 @@ export async function addPlayer(
 
   if (existingMembership) {
     throw new Error(
-      `You already have ${existingMembership.role} access to this team.`
+      `You already have ${existingMembership.role} access to this team.`,
     );
   }
 
@@ -126,4 +161,39 @@ export async function addPlayer(
 
   revalidatePath(`/dashboard/teams/${teamId}`);
   revalidatePath("/dashboard/teams");
+}
+
+export async function leaveTeam(teamId: string) {
+  const { supabase } = await requireMembership();
+
+  const { error } = await supabase.rpc("leave_team", {
+    p_team_id: teamId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(`/dashboard/teams/${teamId}`);
+  revalidatePath("/dashboard/teams");
+  revalidatePath("/dashboard");
+
+  redirect("/dashboard/teams");
+}
+
+export async function deleteTeam(teamId: string) {
+  const { supabase } = await requireMembership();
+
+  const { error } = await supabase.rpc("delete_team", {
+    p_team_id: teamId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/teams");
+  revalidatePath("/dashboard");
+
+  redirect("/dashboard/teams");
 }
