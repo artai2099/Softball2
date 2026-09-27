@@ -7,6 +7,14 @@ type OrganizationOption = {
   name: string;
 };
 
+const navigation = [
+  { href: "/dashboard", label: "Home" },
+  { href: "/dashboard/teams", label: "Teams" },
+  { href: "/dashboard/games", label: "Games" },
+  { href: "/dashboard/games/new", label: "New Game" },
+  { href: "/dashboard/members", label: "Members" },
+];
+
 export function AppShell({
   children,
   userName,
@@ -31,11 +39,14 @@ export function AppShell({
           height: 68px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          padding: 0 12px;
+          padding: 0 16px;
           background: #061f45;
           border-bottom: 3px solid #e50046;
           box-sizing: border-box;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          gap: 12px;
         }
 
         .gdpShell .brand {
@@ -48,6 +59,7 @@ export function AppShell({
           font-weight: 800;
           letter-spacing: .05em;
           text-transform: uppercase;
+          min-width: 0;
         }
 
         .gdpShell .brand span {
@@ -55,6 +67,7 @@ export function AppShell({
           height: 34px;
           display: grid;
           place-items: center;
+          flex: 0 0 auto;
           border-radius: 50%;
           background: #fff;
           color: #e50046;
@@ -67,6 +80,7 @@ export function AppShell({
           display: flex;
           align-items: center;
           gap: 8px;
+          margin-left: auto;
         }
 
         .gdpShell .topActions form {
@@ -105,35 +119,12 @@ export function AppShell({
         }
 
         .gdpShell .layout {
-          display: grid;
-          grid-template-columns: 210px minmax(0, 1fr);
+          display: block;
           min-height: calc(100vh - 68px);
         }
 
         .gdpShell .sidebar {
-          background: #f4f6f9;
-          border-right: 1px solid #d7dce4;
-          padding: 22px 0;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .gdpShell .sidebar a {
-          min-height: 46px;
-          display: flex;
-          align-items: center;
-          padding: 0 24px;
-          box-sizing: border-box;
-          color: #50617d;
-          text-decoration: none;
-          font-size: 15px;
-          font-weight: 750;
-          border-left: 3px solid transparent;
-        }
-
-        .gdpShell .sidebar a:hover {
-          background: #e9edf3;
-          color: #172641;
+          display: none;
         }
 
         .gdpShell .main {
@@ -233,24 +224,127 @@ export function AppShell({
           border-radius: 9px;
         }
 
+        /* Hamburger menu - desktop and mobile */
+        .gdpShell .mobileMenu {
+          display: block;
+          position: relative;
+          flex: 0 0 auto;
+          order: -1;
+        }
+
+        .gdpShell .mobileMenu > summary {
+          list-style: none;
+          width: 44px;
+          height: 44px;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          border-radius: 8px;
+          background: #0d2b55;
+          border: 1px solid #426184;
+          color: #fff;
+        }
+
+        .gdpShell .mobileMenu > summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .gdpShell .hamburger {
+          width: 22px;
+          height: 16px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .gdpShell .hamburger span {
+          display: block;
+          width: 100%;
+          height: 2px;
+          border-radius: 2px;
+          background: #fff;
+        }
+
+        .gdpShell .mobileMenu[open] > summary {
+          background: #7c2cff;
+          border-color: #7c2cff;
+        }
+
+        .gdpShell .mobileNav {
+          position: absolute;
+          left: 0;
+          top: 52px;
+          width: 300px;
+          max-width: calc(100vw - 32px);
+          padding: 8px;
+          background: #0b0d11;
+          border: 1px solid #30343c;
+          border-radius: 12px;
+          box-shadow: 0 18px 45px rgba(0, 0, 0, .45);
+          box-sizing: border-box;
+        }
+
+        .gdpShell .mobileNav a {
+          min-height: 46px;
+          display: flex;
+          align-items: center;
+          padding: 0 14px;
+          border-radius: 8px;
+          color: #f2f4f7;
+          text-decoration: none;
+          font-size: 15px;
+          font-weight: 800;
+        }
+
+        .gdpShell .mobileNav a:hover {
+          background: #171a20;
+        }
+
+        .gdpShell .mobileNavDivider {
+          height: 1px;
+          margin: 8px 4px;
+          background: #292d35;
+        }
+
+        .gdpShell .mobileNavUser {
+          padding: 10px 14px 6px;
+          color: #aeb5c0;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .gdpShell .mobileNav form {
+          margin: 0;
+        }
+
+        .gdpShell .mobileNav select {
+          width: 100%;
+          min-height: 42px;
+          margin-bottom: 8px;
+          padding: 0 10px;
+          background: #151619;
+          color: #fff;
+          border: 1px solid #363941;
+          border-radius: 7px;
+          box-sizing: border-box;
+        }
+
+        .gdpShell .mobileNav button {
+          width: 100%;
+          min-height: 42px;
+        }
+
         @media (max-width: 800px) {
-          .gdpShell .layout {
-            grid-template-columns: 1fr;
+          .gdpShell .topbar {
+            padding: 0 10px;
           }
 
-          .gdpShell .sidebar {
-            order: 2;
-            flex-direction: row;
-            overflow-x: auto;
-            padding: 0;
-            border-right: 0;
-            border-top: 1px solid #d7dce4;
+          .gdpShell .topActions {
+            display: none;
           }
 
-          .gdpShell .sidebar a {
-            min-width: max-content;
-            padding: 0 16px;
-            border-left: 0;
+          .gdpShell .brand {
+            font-size: 14px;
           }
 
           .gdpShell .main {
@@ -258,57 +352,124 @@ export function AppShell({
           }
 
           .gdpShell .gdpContent {
+            width: 100%;
             min-height: calc(100vh - 96px);
-            padding: 20px;
+            padding: 18px;
+          }
+        }
+
+        @media (max-width: 430px) {
+          .gdpShell .brand {
+            font-size: 12px;
+            gap: 8px;
           }
 
-          .gdpShell .topActions small,
-          .gdpShell .topActions form:last-child {
-            display: none;
+          .gdpShell .brand span {
+            width: 31px;
+            height: 31px;
+            font-size: 15px;
+          }
+
+          .gdpShell .gdpContent {
+            padding: 14px;
+          }
+
+          .gdpShell .mobileNav {
+            width: 280px;
           }
         }
       `}</style>
 
       <header className="topbar">
+        <details className="mobileMenu">
+          <summary aria-label="Open navigation menu">
+            <span className="hamburger" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </summary>
+
+          <nav className="mobileNav">
+            {navigation.map((item) => (
+              <Link key={item.href} href={item.href}>
+                {item.label}
+              </Link>
+            ))}
+
+            <div className="mobileNavDivider" />
+
+            <div className="mobileNavUser">{userName}</div>
+
+            <form action={switchOrganization}>
+              <select
+                name="organizationId"
+                defaultValue={activeOrganization}
+                aria-label="Organization"
+              >
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+
+              <button type="submit" className="button secondary">
+                Switch Organization
+              </button>
+            </form>
+
+            <div className="mobileNavDivider" />
+
+            <form action={signOut}>
+              <button type="submit" className="button secondary">
+                Sign Out
+              </button>
+            </form>
+          </nav>
+        </details>
+
         <Link href="/dashboard" className="brand">
           <span>G</span>
           GameDay Softball
         </Link>
 
         <div className="topActions">
-          {organizations.length > 1 && (
-            <form action={switchOrganization}>
-              <select
-                name="organizationId"
-                defaultValue={activeOrganization}
-                aria-label="Active organization"
-              >
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
+          <form action={switchOrganization}>
+            <select
+              name="organizationId"
+              defaultValue={activeOrganization}
+              aria-label="Organization"
+            >
+              {organizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>
+                  {organization.name}
+                </option>
+              ))}
+            </select>
 
-              <button className="button secondary">Switch</button>
-            </form>
-          )}
+            <button type="submit" className="button secondary">
+              Switch
+            </button>
+          </form>
 
           <small>{userName}</small>
 
           <form action={signOut}>
-            <button className="button secondary">Sign out</button>
+            <button type="submit" className="button secondary">
+              Sign out
+            </button>
           </form>
         </div>
       </header>
 
       <div className="layout">
-        <aside className="sidebar">
-          <Link href="/dashboard">Home</Link>
-          <Link href="/dashboard/teams">Teams</Link>
-          <Link href="/dashboard/games">Games</Link>
-          <Link href="/dashboard/games/new">New game</Link>
-          <Link href="/dashboard/members">Members</Link>
+        <aside className="sidebar" aria-label="Main navigation">
+          {navigation.map((item) => (
+            <Link key={item.href} href={item.href}>
+              {item.label}
+            </Link>
+          ))}
         </aside>
 
         <main className="main">
