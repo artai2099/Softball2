@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 import { switchOrganization } from "@/app/dashboard/actions";
@@ -26,6 +29,46 @@ export function AppShell({
   organizations: OrganizationOption[];
   activeOrganization: string;
 }) {
+  useEffect(() => {
+    const closeNavigationMenus = () => {
+      document
+        .querySelectorAll("details[open]")
+        .forEach((element) => {
+          (element as HTMLDetailsElement).open = false;
+        });
+
+      document
+        .querySelectorAll(
+          "[data-menu-open='true'], [aria-expanded='true'][data-menu-trigger]",
+        )
+        .forEach((element) => {
+          element.setAttribute("aria-expanded", "false");
+        });
+
+      document
+        .querySelectorAll(".mobileMenu.open, .mobileMenu.is-open")
+        .forEach((element) => {
+          element.classList.remove("open", "is-open");
+        });
+    };
+
+    const handleNavigationClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (!target) return;
+
+      const link = target.closest("a");
+      if (!link) return;
+
+      closeNavigationMenus();
+    };
+
+    document.addEventListener("click", handleNavigationClick, true);
+
+    return () => {
+      document.removeEventListener("click", handleNavigationClick, true);
+    };
+  }, []);
+
   return (
     <div className="gdpShell">
       <style>{`
