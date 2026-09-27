@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireMembership } from "@/lib/auth";
-import { addPlayer } from "./actions";
+import { addPlayer, requestTeamAccess } from "./actions";
 
 type TeamMember = {
   id: string;
@@ -15,13 +15,15 @@ export default async function TeamPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase, membership } = await requireMembership();
+  const { supabase, user, membership } = await requireMembership();
 
   const [
     { data: team },
     { data: players },
     { data: canManageTeam, error: permissionError },
     { data: members, error: membersError },
+    { data: currentMembership, error: currentMembershipError },
+    { data: pendingRequest, error: pendingRequestError },
   ] = await Promise.all([
     supabase
       .from("teams")
@@ -44,9 +46,26 @@ export default async function TeamPage({
     supabase.rpc("get_team_members", {
       p_team_id: id,
     }),
+
+    supabase
+      .from("team_memberships")
+      .select("id, role")
+      .eq("team_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+
+    supabase
+      .from("team_access_requests")
+      .select("id, status")
+      .eq("team_id", id)
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .maybeSingle(),
   ]);
 
-  if (!team) notFound();
+  if (!team) {
+    notFound();
+  }
 
   if (permissionError) {
     console.error("Permission check failed:", permissionError);
@@ -56,8 +75,26 @@ export default async function TeamPage({
     console.error("Team members load failed:", membersError);
   }
 
+  if (currentMembershipError) {
+    console.error(
+      "Team membership check failed:",
+      currentMembershipError
+    );
+  }
+
+  if (pendingRequestError) {
+    console.error(
+      "Access request check failed:",
+      pendingRequestError
+    );
+  }
+
   const canEdit = Boolean(canManageTeam);
+  const hasTeamAccess = Boolean(currentMembership);
+  const hasPendingRequest = Boolean(pendingRequest);
+
   const action = addPlayer.bind(null, id);
+  const requestAccessAction = requestTeamAccess.bind(null, id);
 
   return (
     <>
@@ -122,12 +159,38 @@ export default async function TeamPage({
         </section>
       )}
 
-      {/* READ ONLY MESSAGE */}
-      {!canEdit && (
+      {/* TEAM ACCESS STATUS */}
+      {!canEdit && hasTeamAccess && (
         <section className="card">
           <p className="notice">
-            You have read-only access to this team.
+            You have {currentMembership?.role} access to this team.
           </p>
+        </section>
+      )}
+
+      {!canEdit && !hasTeamAccess && hasPendingRequest && (
+        <section className="card">
+          <h2>Team Access</h2>
+          <p className="notice">
+            Your request for access to this team is pending.
+          </p>
+        </section>
+      )}
+
+      {!canEdit && !hasTeamAccess && !hasPendingRequest && (
+        <section className="card">
+          <h2>Team Access</h2>
+
+          <p className="muted" style={{ marginBottom: 12 }}>
+            You are a member of this organization but do not have
+            access to this team yet.
+          </p>
+
+          <form action={requestAccessAction}>
+            <button className="button primary">
+              Request Access
+            </button>
+          </form>
         </section>
       )}
 

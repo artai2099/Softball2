@@ -64,4 +64,66 @@ export async function addPlayer(
   }
 
   revalidatePath(`/dashboard/teams/${teamId}`);
+}export async function requestTeamAccess(teamId: string) {
+  const { supabase, user, membership } = await requireMembership();
+
+  const { data: team, error: teamError } = await supabase
+    .from("teams")
+    .select("id, organization_id")
+    .eq("id", teamId)
+    .eq("organization_id", membership.organization_id)
+    .single();
+
+  if (teamError || !team) {
+    throw new Error("Team not found.");
+  }
+
+  const { data: existingMembership, error: membershipError } =
+    await supabase
+      .from("team_memberships")
+      .select("id, role")
+      .eq("team_id", teamId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+  if (membershipError) {
+    throw new Error(membershipError.message);
+  }
+
+  if (existingMembership) {
+    throw new Error(
+      `You already have ${existingMembership.role} access to this team.`
+    );
+  }
+
+  const { data: pendingRequest, error: requestCheckError } = await supabase
+    .from("team_access_requests")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (requestCheckError) {
+    throw new Error(requestCheckError.message);
+  }
+
+  if (pendingRequest) {
+    throw new Error("Your access request is already pending.");
+  }
+
+  const { error } = await supabase
+    .from("team_access_requests")
+    .insert({
+      team_id: teamId,
+      user_id: user.id,
+      status: "pending",
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(`/dashboard/teams/${teamId}`);
+  revalidatePath("/dashboard/teams");
 }
