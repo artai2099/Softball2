@@ -27,5 +27,13 @@ const organizations = (memberships || []).map((item) => {
     name: name || "Organization",
   };
 });
-  return <AppShell userName={String(user.user_metadata?.display_name || user.email || "Account")} organizations={organizations} activeOrganization={membership.organization_id}>{children}</AppShell>;
+  return (
+<AppShell
+ userName={String(user.user_metadata?.display_name || user.email || "Account")}
+ organizations={organizations}
+ activeOrganization={membership.organization_id}
+>
+ {children}
+</AppShell>
+);
 }
