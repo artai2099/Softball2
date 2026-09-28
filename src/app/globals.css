@@ -3102,3 +3102,273 @@
     font-size: 7px !important;
   }
 }
+
+/* =========================================================
+   GAMEDAY — LARGER MOBILE UI
+   ========================================================= */
+@media (max-width: 700px) {
+  /* Core app navigation and controls */
+  .topbar {
+    height: 68px;
+    padding: 0 12px;
+  }
+
+  .button {
+    min-height: 48px;
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+
+  .topActions {
+    gap: 10px;
+  }
+
+  .sidebar {
+    padding: 10px;
+  }
+
+  .sidebar a {
+    padding: 13px 14px;
+    margin-right: 4px;
+    font-size: 15px;
+  }
+
+  .main {
+    padding: 20px 14px;
+  }
+
+  .pageHead {
+    margin-bottom: 20px;
+  }
+
+  .pageHead h1 {
+    font-size: 28px;
+  }
+
+  .card {
+    padding: 18px;
+  }
+
+  .card h2,
+  .card h3 {
+    font-size: 20px;
+  }
+
+  .gameMeta {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .teamRow {
+    min-height: 44px;
+    gap: 10px;
+  }
+
+  .teamCode {
+    width: 42px;
+    height: 30px;
+    font-size: 12px;
+  }
+
+  .teamScore {
+    font-size: 28px;
+  }
+
+  .cardFoot {
+    padding: 11px 12px;
+    font-size: 13px;
+  }
+
+  .scoreButton {
+    min-height: 62px;
+    font-size: 16px;
+  }
+
+  .position {
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .count span {
+    padding: 9px 12px;
+    font-size: 15px;
+  }
+
+  .batterLine {
+    font-size: 21px;
+  }
+
+  .batterPicker select {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .inningNumber {
+    font-size: 30px;
+  }
+
+  .notice {
+    font-size: 14px;
+  }
+
+  /* Main dashboard */
+  .gdpDashboard {
+    padding: 22px 16px 96px !important;
+  }
+
+  .gdpKicker {
+    font-size: 11px !important;
+  }
+
+  .gdpTitle {
+    font-size: 38px !important;
+  }
+
+  .gdpButton {
+    min-height: 48px !important;
+    padding: 0 17px !important;
+    font-size: 14px !important;
+  }
+
+  .gdpStats {
+    margin-bottom: 28px;
+  }
+
+  .gdpStat {
+    padding: 17px 12px !important;
+  }
+
+  .gdpStatLabel {
+    font-size: 10px !important;
+  }
+
+  .gdpStatValue {
+    font-size: 27px !important;
+  }
+
+  .gdpSection {
+    margin-bottom: 30px;
+  }
+
+  .gdpSectionHead h2 {
+    font-size: 22px !important;
+  }
+
+  .gdpSectionHead a {
+    font-size: 12px !important;
+  }
+
+  .gdpRecentRow {
+    min-height: 92px !important;
+  }
+
+  .gdpDate strong {
+    font-size: 15px !important;
+  }
+
+  .gdpDate span {
+    font-size: 10px !important;
+  }
+
+  .gdpTeamName {
+    font-size: 15px !important;
+  }
+
+  .gdpScore {
+    font-size: 19px !important;
+  }
+
+  .gdpUpcomingCard {
+    padding: 20px !important;
+  }
+
+  .gdpUpcomingMeta {
+    font-size: 10px !important;
+  }
+
+  .gdpUpcomingTeams {
+    margin-top: 22px;
+  }
+
+  .gdpUpcomingTeams strong {
+    font-size: 16px !important;
+  }
+
+  .gdpUpcomingTeams span {
+    font-size: 10px !important;
+  }
+
+  .gdpLive {
+    padding: 24px !important;
+  }
+
+  .gdpLiveLabel {
+    font-size: 10px !important;
+  }
+
+  .gdpLiveInning {
+    font-size: 11px !important;
+  }
+
+  .gdpLiveTeamName small {
+    font-size: 9px !important;
+  }
+
+  .gdpLiveTeamName strong {
+    font-size: 16px !important;
+  }
+
+  .gdpLiveScore {
+    font-size: 34px !important;
+  }
+
+  /* Game Center */
+  .gameCenterHero {
+    padding: 24px !important;
+    margin-bottom: 24px !important;
+    border-radius: 14px;
+  }
+
+  .gameCenterStats {
+    gap: 10px !important;
+    margin-top: 20px !important;
+  }
+
+  .gameCenterStat {
+    padding: 17px !important;
+  }
+
+  .gameCenterStatValue {
+    font-size: 27px !important;
+  }
+
+  .gameCenterStatLabel {
+    font-size: 10px !important;
+  }
+
+  .gameCenterSection {
+    margin-top: 28px !important;
+  }
+
+  .gameCenterSectionTitle {
+    font-size: 19px !important;
+  }
+
+  .gameCenterSectionCount {
+    font-size: 12px !important;
+  }
+
+  .gameCenterLiveGrid,
+  .gameCenterUpcomingGrid,
+  .gameCenterCompletedGrid {
+    gap: 12px !important;
+  }
+
+  /* Make touch targets easier to use */
+  button,
+  a,
+  select,
+  input {
+    touch-action: manipulation;
+  }
+}
