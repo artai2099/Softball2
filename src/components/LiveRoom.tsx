@@ -67,6 +67,7 @@ export function LiveRoom({ gameId, game, role }: LiveRoomProps) {
     ConnectionQuality.Unknown
   );
   const [cameraLabel, setCameraLabel] = useState("");
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
   const [error, setError] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -831,6 +832,15 @@ export function LiveRoom({ gameId, game, role }: LiveRoomProps) {
           openedLabel =
             track.label || device.label || "Camera";
 
+          const detectedFacing = track.getSettings().facingMode;
+
+          if (
+            detectedFacing === "environment" ||
+            detectedFacing === "user"
+          ) {
+            setCameraFacing(detectedFacing);
+          }
+
           break;
         } catch (cameraError) {
           console.warn(
@@ -921,6 +931,131 @@ export function LiveRoom({ gameId, game, role }: LiveRoomProps) {
       setStatus("Live video unavailable");
     } finally {
       setConnecting(false);
+    }
+  }
+
+  function isMobileCameraBrowser() {
+    if (typeof navigator === "undefined") return false;
+
+    return (
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 1 &&
+        /Macintosh/i.test(navigator.userAgent))
+    );
+  }
+
+  async function switchCamera() {
+    if (role !== "broadcaster") return;
+
+    const room = roomRef.current;
+    const oldTrack = cameraTrackRef.current;
+
+    if (!room || !oldTrack) return;
+
+    const nextFacing =
+      cameraFacing === "environment" ? "user" : "environment";
+
+    setStatus(
+      nextFacing === "environment"
+        ? "Switching to back camera…"
+        : "Switching to front camera…"
+    );
+    setError("");
+
+    let newStream: MediaStream | null = null;
+
+    try {
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              exact: nextFacing,
+            },
+          },
+          audio: false,
+        });
+      } catch {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              ideal: nextFacing,
+            },
+          },
+          audio: false,
+        });
+      }
+
+      const newTrack = newStream.getVideoTracks()[0];
+
+      if (!newTrack) {
+        newStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {}
+        });
+
+        throw new Error("The selected camera could not be opened.");
+      }
+
+      try {
+        room.localParticipant.unpublishTrack(oldTrack);
+      } catch {}
+
+      try {
+        oldTrack.stop();
+      } catch {}
+
+      cameraStreamRef.current = newStream;
+      cameraTrackRef.current = newTrack;
+
+      const actualFacing = newTrack.getSettings().facingMode;
+
+      if (actualFacing === "environment" || actualFacing === "user") {
+        setCameraFacing(actualFacing);
+      } else {
+        setCameraFacing(nextFacing);
+      }
+
+      setCameraLabel(newTrack.label || "Camera");
+      attachLocalPreview(newStream);
+
+      const publication =
+        await room.localParticipant.publishTrack(
+          newTrack,
+          {
+            name: "gameday-camera",
+            source: Track.Source.Camera,
+            simulcast: true,
+          }
+        );
+
+      if (!publication?.videoTrack) {
+        throw new Error(
+          "The camera opened, but LiveKit could not publish it."
+        );
+      }
+
+      setCameraEnabled(true);
+      setHasVideo(true);
+      setActive(true);
+      setStatus("You are LIVE");
+    } catch (cameraError) {
+      console.error("GameDay camera switch failed:", cameraError);
+
+      if (newStream) {
+        newStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {}
+        });
+      }
+
+      setError(
+        cameraError instanceof Error
+          ? cameraError.message
+          : "The camera could not be switched."
+      );
+      setStatus("Camera switch failed");
     }
   }
 
@@ -1968,6 +2103,21 @@ export function LiveRoom({ gameId, game, role }: LiveRoomProps) {
                   : "🔇 Mic off"}
               </button>
             )}
+
+            {role === "broadcaster" &&
+              active &&
+              cameraEnabled &&
+              isMobileCameraBrowser() && (
+                <button
+                  type="button"
+                  className="gdpLiveButton gdpCameraSwitchButton"
+                  onClick={() => void switchCamera()}
+                >
+                  {cameraFacing === "environment"
+                    ? "↩ Front camera"
+                    : "↪ Back camera"}
+                </button>
+              )}
           </div>
 
           <div className="gdpLiveControlsRight">

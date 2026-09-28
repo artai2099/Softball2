@@ -3073,3 +3073,32 @@
   }
 }
 
+
+/* GameDay camera — phone readability */
+@media (max-width: 700px) {
+  .gdpLiveRoom .gdpLiveTitle {
+    font-size: 12px !important;
+  }
+
+  .gdpLiveRoom .gdpLiveSub {
+    font-size: 9px !important;
+  }
+
+  .gdpLiveRoom .gdpGameHeaderTeam span {
+    font-size: 9px !important;
+  }
+
+  .gdpLiveRoom .gdpGameHeaderTeam strong {
+    font-size: 27px !important;
+  }
+
+  .gdpLiveRoom .gdpGameHeaderInning {
+    font-size: 9px !important;
+  }
+
+  .gdpLiveRoom .gdpGameHeaderCount span {
+    min-width: 22px !important;
+    height: 20px !important;
+    font-size: 7px !important;
+  }
+}
