@@ -948,12 +948,21 @@ export function LiveRoom({ gameId, game, role }: LiveRoomProps) {
     if (role !== "broadcaster") return;
 
     const room = roomRef.current;
-    const oldTrack = cameraTrackRef.current;
+    const publication =
+      room?.localParticipant.getTrackPublication(
+        Track.Source.Camera
+      );
+    const videoTrack = publication?.videoTrack;
 
-    if (!room || !oldTrack) return;
+    if (!room || !videoTrack) {
+      setError("The live camera is not available.");
+      return;
+    }
 
     const nextFacing =
-      cameraFacing === "environment" ? "user" : "environment";
+      cameraFacing === "environment"
+        ? "user"
+        : "environment";
 
     setStatus(
       nextFacing === "environment"
@@ -962,99 +971,59 @@ export function LiveRoom({ gameId, game, role }: LiveRoomProps) {
     );
     setError("");
 
-    let newStream: MediaStream | null = null;
-
     try {
-      try {
-        newStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: {
-              exact: nextFacing,
-            },
-          },
-          audio: false,
-        });
-      } catch {
-        newStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: {
-              ideal: nextFacing,
-            },
-          },
-          audio: false,
-        });
-      }
+      await videoTrack.restartTrack({
+        facingMode: nextFacing,
+      });
 
-      const newTrack = newStream.getVideoTracks()[0];
+      const mediaTrack = videoTrack.mediaStreamTrack;
 
-      if (!newTrack) {
-        newStream.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch {}
-        });
-
-        throw new Error("The selected camera could not be opened.");
-      }
-
-      try {
-        room.localParticipant.unpublishTrack(oldTrack);
-      } catch {}
-
-      try {
-        oldTrack.stop();
-      } catch {}
-
-      cameraStreamRef.current = newStream;
-      cameraTrackRef.current = newTrack;
-
-      const actualFacing = newTrack.getSettings().facingMode;
-
-      if (actualFacing === "environment" || actualFacing === "user") {
-        setCameraFacing(actualFacing);
-      } else {
-        setCameraFacing(nextFacing);
-      }
-
-      setCameraLabel(newTrack.label || "Camera");
-      attachLocalPreview(newStream);
-
-      const publication =
-        await room.localParticipant.publishTrack(
-          newTrack,
-          {
-            name: "gameday-camera",
-            source: Track.Source.Camera,
-            simulcast: true,
-          }
-        );
-
-      if (!publication?.videoTrack) {
+      if (mediaTrack.readyState === "ended") {
         throw new Error(
-          "The camera opened, but LiveKit could not publish it."
+          "The camera stopped while switching."
         );
       }
+
+      const actualFacing =
+        mediaTrack.getSettings().facingMode;
+
+      cameraTrackRef.current = mediaTrack;
+      cameraStreamRef.current = new MediaStream([
+        mediaTrack,
+      ]);
+
+      setCameraFacing(
+        actualFacing === "environment" ||
+          actualFacing === "user"
+          ? actualFacing
+          : nextFacing
+      );
+
+      setCameraLabel(
+        mediaTrack.label || "Camera"
+      );
+
+      attachLocalPreview(
+        cameraStreamRef.current
+      );
 
       setCameraEnabled(true);
       setHasVideo(true);
       setActive(true);
+      setError("");
       setStatus("You are LIVE");
     } catch (cameraError) {
-      console.error("GameDay camera switch failed:", cameraError);
-
-      if (newStream) {
-        newStream.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch {}
-        });
-      }
+      console.error(
+        "GameDay camera switch failed:",
+        cameraError
+      );
 
       setError(
         cameraError instanceof Error
           ? cameraError.message
           : "The camera could not be switched."
       );
+
       setStatus("Camera switch failed");
     }
   }
