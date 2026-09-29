@@ -4,6 +4,7 @@ import {
   deleteTeam,
   leaveTeam,
   requestTeamAccess,
+  setTeamJoinable,
 } from "./actions";
 import { requireMembership } from "@/lib/auth";
 
@@ -34,7 +35,9 @@ export default async function TeamPage({
   ] = await Promise.all([
     supabase
       .from("teams")
-      .select("id, name, short_name, city, color, organization_id")
+      .select(
+        "id, name, short_name, city, color, organization_id, allow_self_join",
+      )
       .eq("id", id)
       .eq("organization_id", membership.organization_id)
       .single(),
@@ -164,6 +167,39 @@ export default async function TeamPage({
           </div>
         </div>
       </section>
+
+      {isTeamManager && (
+        <section className="card" style={{ marginBottom: 18 }}>
+          <p className="eyebrow">TEAM DIRECTORY</p>
+          <h2>Allow users to find and join this team</h2>
+          <p className="muted" style={{ marginBottom: 14 }}>
+            When enabled, this team appears in Find a Team and signed-in users
+            can join immediately as viewers.
+          </p>
+
+          <form action={setTeamJoinable.bind(null, id)}>
+            <input
+              type="hidden"
+              name="enabled"
+              value={team.allow_self_join ? "false" : "true"}
+            />
+            <button className="button primary" type="submit">
+              {team.allow_self_join
+                ? "Stop accepting new members"
+                : "Allow users to find and join"}
+            </button>
+          </form>
+
+          <p className="muted" style={{ marginTop: 10 }}>
+            Status:{" "}
+            <strong>
+              {team.allow_self_join
+                ? "Accepting new members"
+                : "Not listed in the team directory"}
+            </strong>
+          </p>
+        </section>
+      )}
 
       {canManageTeam && (
         <section className="card" style={{ marginBottom: 18 }}>

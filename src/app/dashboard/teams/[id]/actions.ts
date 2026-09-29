@@ -99,6 +99,37 @@ export async function addPlayer(teamId: string, formData: FormData) {
   revalidatePath("/dashboard/teams");
 }
 
+export async function setTeamJoinable(teamId: string, formData: FormData) {
+  const { supabase, user } = await requireMembership();
+
+  const { teamRole } = await getTeamAccess(
+    supabase,
+    user.id,
+    teamId,
+  );
+
+  if (teamRole !== "manager") {
+    throw new Error(
+      "Only the team manager can change the team join setting.",
+    );
+  }
+
+  const enabled = String(formData.get("enabled") || "") === "true";
+
+  const { error } = await supabase.rpc("set_team_joinable", {
+    p_team_id: teamId,
+    p_enabled: enabled,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(`/dashboard/teams/${teamId}`);
+  revalidatePath("/dashboard/teams/find");
+  revalidatePath("/dashboard/teams");
+}
+
 export async function requestTeamAccess(teamId: string) {
   const { supabase, user, membership } = await requireMembership();
 
