@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireMembership } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function createTeam(formData: FormData) {
   const { supabase, membership } = await requireMembership();
@@ -36,7 +37,15 @@ export async function createTeam(formData: FormData) {
 }
 
 export async function joinTeam(formData: FormData) {
-  const { supabase } = await requireMembership();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
 
   const teamId = String(formData.get("teamId") || "").trim();
 
@@ -44,13 +53,16 @@ export async function joinTeam(formData: FormData) {
     throw new Error("Team is required.");
   }
 
-  const { error } = await supabase.rpc("join_team", {
+  const { data, error } = await supabase.rpc("join_team", {
     p_team_id: teamId,
   });
 
   if (error) {
-    throw new Error(error.message);
+    console.error("join_team failed:", error);
+    throw new Error(`Unable to join team: ${error.message}`);
   }
+
+  console.log("join_team succeeded:", data);
 
   revalidatePath("/dashboard/teams");
   revalidatePath("/dashboard/teams/find");
