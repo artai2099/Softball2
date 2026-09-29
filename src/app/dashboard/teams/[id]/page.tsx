@@ -168,7 +168,7 @@ export default async function TeamPage({
         </div>
       </section>
 
-      {isTeamManager && (
+      {canManageTeam && (
         <section className="card" style={{ marginBottom: 18 }}>
           <p className="eyebrow">TEAM DIRECTORY</p>
           <h2>Allow users to find and join this team</h2>

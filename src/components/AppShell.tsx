@@ -13,6 +13,7 @@ type OrganizationOption = {
 const navigation = [
   { href: "/dashboard", label: "Home" },
   { href: "/dashboard/teams", label: "Teams" },
+  { href: "/dashboard/teams/find", label: "Find a Team" },
   { href: "/dashboard/games", label: "Games" },
   { href: "/dashboard/games/new", label: "New Game" },
   { href: "/dashboard/members", label: "Members" },
