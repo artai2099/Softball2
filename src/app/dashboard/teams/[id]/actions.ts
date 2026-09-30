@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireMembership } from "@/lib/auth";
+import {
+  requireUser,
+  requireMembership,
+} from "@/lib/auth";
 
 async function getTeamAccess(
   supabase: any,
@@ -49,7 +52,7 @@ async function getTeamAccess(
 }
 
 export async function addPlayer(teamId: string, formData: FormData) {
-  const { supabase, user } = await requireMembership();
+  const { supabase, user } = await requireUser();
 
   const { orgRole, teamRole } = await getTeamAccess(
     supabase,
@@ -62,16 +65,31 @@ export async function addPlayer(teamId: string, formData: FormData) {
     teamRole === "manager";
 
   if (!canManage) {
-    throw new Error("You do not have permission to manage this team.");
+    throw new Error(
+      "You do not have permission to manage this team.",
+    );
   }
 
-  const firstName = String(formData.get("firstName") || "").trim();
-  const lastName = String(formData.get("lastName") || "").trim();
-  const jerseyNumber = Number(formData.get("jerseyNumber"));
-  const position = String(formData.get("position") || "").trim();
+  const firstName = String(
+    formData.get("firstName") || "",
+  ).trim();
+
+  const lastName = String(
+    formData.get("lastName") || "",
+  ).trim();
+
+  const jerseyNumber = Number(
+    formData.get("jerseyNumber"),
+  );
+
+  const position = String(
+    formData.get("position") || "",
+  ).trim();
 
   if (!firstName || !lastName) {
-    throw new Error("First and last name are required.");
+    throw new Error(
+      "First and last name are required.",
+    );
   }
 
   if (
@@ -79,17 +97,21 @@ export async function addPlayer(teamId: string, formData: FormData) {
     jerseyNumber < 0 ||
     jerseyNumber > 999
   ) {
-    throw new Error("Jersey number must be between 0 and 999.");
+    throw new Error(
+      "Jersey number must be between 0 and 999.",
+    );
   }
 
-  const { error } = await supabase.from("players").insert({
-    team_id: teamId,
-    first_name: firstName,
-    last_name: lastName,
-    jersey_number: jerseyNumber,
-    position,
-    active: true,
-  });
+  const { error } = await supabase
+    .from("players")
+    .insert({
+      team_id: teamId,
+      first_name: firstName,
+      last_name: lastName,
+      jersey_number: jerseyNumber,
+      position,
+      active: true,
+    });
 
   if (error) {
     throw new Error(error.message);
@@ -99,8 +121,11 @@ export async function addPlayer(teamId: string, formData: FormData) {
   revalidatePath("/dashboard/teams");
 }
 
-export async function setTeamJoinable(teamId: string, formData: FormData) {
-  const { supabase, user } = await requireMembership();
+export async function setTeamJoinable(
+  teamId: string,
+  formData: FormData,
+) {
+  const { supabase, user } = await requireUser();
 
   const { teamRole } = await getTeamAccess(
     supabase,
@@ -114,12 +139,16 @@ export async function setTeamJoinable(teamId: string, formData: FormData) {
     );
   }
 
-  const enabled = String(formData.get("enabled") || "") === "true";
+  const enabled =
+    String(formData.get("enabled") || "") === "true";
 
-  const { error } = await supabase.rpc("set_team_joinable", {
-    p_team_id: teamId,
-    p_enabled: enabled,
-  });
+  const { error } = await supabase.rpc(
+    "set_team_joinable",
+    {
+      p_team_id: teamId,
+      p_enabled: enabled,
+    },
+  );
 
   if (error) {
     throw new Error(error.message);
@@ -131,13 +160,12 @@ export async function setTeamJoinable(teamId: string, formData: FormData) {
 }
 
 export async function requestTeamAccess(teamId: string) {
-  const { supabase, user, membership } = await requireMembership();
+  const { supabase, user } = await requireUser();
 
   const { data: team, error: teamError } = await supabase
     .from("teams")
     .select("id, organization_id")
     .eq("id", teamId)
-    .eq("organization_id", membership.organization_id)
     .single();
 
   if (teamError || !team) {
@@ -162,7 +190,10 @@ export async function requestTeamAccess(teamId: string) {
     );
   }
 
-  const { data: pendingRequest, error: requestCheckError } = await supabase
+  const {
+    data: pendingRequest,
+    error: requestCheckError,
+  } = await supabase
     .from("team_access_requests")
     .select("id")
     .eq("team_id", teamId)
@@ -175,7 +206,9 @@ export async function requestTeamAccess(teamId: string) {
   }
 
   if (pendingRequest) {
-    throw new Error("Your access request is already pending.");
+    throw new Error(
+      "Your access request is already pending.",
+    );
   }
 
   const { error } = await supabase
@@ -195,7 +228,7 @@ export async function requestTeamAccess(teamId: string) {
 }
 
 export async function leaveTeam(teamId: string) {
-  const { supabase } = await requireMembership();
+  const { supabase } = await requireUser();
 
   const { error } = await supabase.rpc("leave_team", {
     p_team_id: teamId,
@@ -213,7 +246,19 @@ export async function leaveTeam(teamId: string) {
 }
 
 export async function deleteTeam(teamId: string) {
-  const { supabase } = await requireMembership();
+  const { supabase, membership } =
+    await requireMembership();
+
+  const { data: team, error: teamError } = await supabase
+    .from("teams")
+    .select("id, organization_id")
+    .eq("id", teamId)
+    .eq("organization_id", membership.organization_id)
+    .single();
+
+  if (teamError || !team) {
+    throw new Error("Team not found.");
+  }
 
   const { error } = await supabase.rpc("delete_team", {
     p_team_id: teamId,

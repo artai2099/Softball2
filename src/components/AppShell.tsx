@@ -10,10 +10,13 @@ type OrganizationOption = {
   name: string;
 };
 
-const navigation = [
+const teamNavigation = [
   { href: "/dashboard", label: "Home" },
   { href: "/dashboard/teams", label: "Teams" },
   { href: "/dashboard/teams/find", label: "Find a Team" },
+];
+
+const organizationNavigation = [
   { href: "/dashboard/games", label: "Games" },
   { href: "/dashboard/games/new", label: "New Game" },
   { href: "/dashboard/members", label: "Members" },
@@ -24,12 +27,17 @@ export function AppShell({
   userName,
   organizations,
   activeOrganization,
+  hasOrganizationMembership,
 }: {
   children: React.ReactNode;
   userName: string;
   organizations: OrganizationOption[];
   activeOrganization: string;
+  hasOrganizationMembership: boolean;
 }) {
+  const navigation = hasOrganizationMembership
+    ? [...teamNavigation, ...organizationNavigation]
+    : teamNavigation;
   useEffect(() => {
     const closeNavigationMenus = () => {
       document

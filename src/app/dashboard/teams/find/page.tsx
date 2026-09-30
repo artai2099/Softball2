@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireMembership } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { joinTeam } from "../actions";
 
 type SearchParams = {
@@ -20,7 +20,7 @@ export default async function FindTeamPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { supabase } = await requireMembership();
+  const { supabase } = await requireUser();
   const params = await searchParams;
   const query = String(params.q || "").trim();
 
