@@ -36,6 +36,32 @@ bases: Record<"1" | "2" | "3", string | null>;
 version: number;
 }
 
+export interface GameLineup {
+id: string;
+game_id: string;
+team_id: string;
+created_at: string;
+}
+
+export interface GameLineupPlayer {
+id: string;
+lineup_id: string;
+player_id: string;
+batting_order: number | null;
+position: string;
+starter: boolean;
+active: boolean;
+entered_at: string | null;
+left_at: string | null;
+created_at: string;
+}
+
+export interface GameLineupPlayerView extends GameLineupPlayer {
+first_name: string;
+last_name: string;
+jersey_number: number;
+}
+
 export interface GameEvent {
 id: string;
 game_id: string;

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ScoringConsole } from "@/components/ScoringConsole";
 import { createClient } from "@/lib/supabase/server";
-import type { Game, GameEvent } from "@/lib/types";
+import type { Game, GameEvent, GameLineupPlayerView } from "@/lib/types";
 
 export default async function GamePage({
   params,
@@ -60,10 +60,62 @@ export default async function GamePage({
 
   const canScore = organizationCanScore || teamManagerCanScore;
 
+  let initialLineup: GameLineupPlayerView[] = [];
+
+  if (game.home_team_id) {
+    const { data: lineup } = await supabase
+      .from("game_lineups")
+      .select("id")
+      .eq("game_id", game.id)
+      .eq("team_id", game.home_team_id)
+      .maybeSingle();
+
+    if (lineup) {
+      const { data: lineupPlayers } = await supabase
+        .from("game_lineup_players")
+        .select("*")
+        .eq("lineup_id", lineup.id)
+        .order("batting_order", { ascending: true });
+
+      const playerIds = (lineupPlayers || []).map((player) => player.player_id);
+
+      if (playerIds.length > 0) {
+        const { data: playerRows } = await supabase
+          .from("players")
+          .select("id, first_name, last_name, jersey_number")
+          .in("id", playerIds);
+
+        const playerMap = new Map(
+          (playerRows || []).map((player) => [player.id, player]),
+        );
+
+        initialLineup = (lineupPlayers || [])
+          .map((lineupPlayer) => {
+            const player = playerMap.get(lineupPlayer.player_id);
+
+            if (!player) {
+              return null;
+            }
+
+            return {
+              ...lineupPlayer,
+              first_name: player.first_name,
+              last_name: player.last_name,
+              jersey_number: player.jersey_number,
+            };
+          })
+          .filter(
+            (player): player is GameLineupPlayerView => player !== null,
+          );
+      }
+    }
+  }
+
   return (
     <ScoringConsole
       initialGame={game as Game}
       initialEvents={(events || []) as GameEvent[]}
+      initialLineup={initialLineup}
       canScore={canScore}
     />
   );

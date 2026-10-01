@@ -3,24 +3,63 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { defensivePositions } from "@/lib/scoring";
-import type { Game,GameEvent } from "@/lib/types";
+import type { Game,GameEvent,GameLineupPlayerView } from "@/lib/types";
 import { LiveRoom } from "./LiveRoom";
 import { PlayFeed } from "./PlayFeed";
 
 const labels: Record<string,string> = { ball:"Ball",strike:"Strike",foul:"Foul",single:"1B",double:"2B",triple:"3B",home_run:"HR",walk:"Walk",hbp:"HBP",strikeout:"Strikeout",out:"Out",error:"Error",double_play:"Double play",triple_play:"Triple play" };
 
-export function ScoringConsole({ initialGame,initialEvents,canScore }: { initialGame: Game;initialEvents:GameEvent[];canScore:boolean }) {
+export function ScoringConsole({ initialGame,initialEvents,initialLineup,canScore }: { initialGame: Game;initialEvents:GameEvent[];initialLineup:GameLineupPlayerView[];canScore:boolean }) {
   const [game,setGame]=useState(initialGame); const [events,setEvents]=useState(initialEvents);
   const [pending,setPending]=useState<string|null>(null); const [positions,setPositions]=useState<string[]>([]);
   const [batterId,setBatterId]=useState<string|null>(initialGame.current_batter_id); const [players,setPlayers]=useState<{id:string;first_name:string;last_name:string;jersey_number:number}[]>([]);
   const [message,setMessage]=useState(""); const [saving,setSaving]=useState(false);
   const supabase=useMemo(()=>createClient(),[]);
+
+  const scoringPlayers = initialLineup.length > 0
+    ? initialLineup
+    : players.map((player) => ({
+        id: player.id,
+        player_id: player.id,
+        first_name: player.first_name,
+        last_name: player.last_name,
+        jersey_number: player.jersey_number,
+        batting_order: null,
+        position: "",
+        starter: true,
+        active: true,
+        entered_at: null,
+        left_at: null,
+        lineup_id: "",
+        created_at: "",
+      }));
+
+  useEffect(() => {
+    if (game.half !== "bottom" || scoringPlayers.length === 0) {
+      return;
+    }
+
+    const ordered = [...scoringPlayers]
+      .filter((player) => player.active)
+      .sort((a, b) => {
+        if (a.batting_order == null && b.batting_order == null) return 0;
+        if (a.batting_order == null) return 1;
+        if (b.batting_order == null) return -1;
+        return a.batting_order - b.batting_order;
+      });
+
+    const nextBatter = game.current_batter_id || ordered[0]?.player_id || null;
+
+    if (nextBatter && batterId !== nextBatter) {
+      setBatterId(nextBatter);
+    }
+  }, [game.half, game.current_batter_id, scoringPlayers, batterId]);
   useEffect(()=>{ const channel=supabase.channel(`game-${game.id}`).on("postgres_changes",{event:"UPDATE",schema:"public",table:"games",filter:`id=eq.${game.id}`},p=>setGame(p.new as Game)).on("postgres_changes",{event:"INSERT",schema:"public",table:"game_events",filter:`game_id=eq.${game.id}`},p=>setEvents(c=>c.some(e=>e.id===p.new.id)?c:[...c,p.new as GameEvent])).subscribe(); return()=>{void supabase.removeChannel(channel)}; },[game.id,supabase]);
 
   useEffect(()=>{ if(!game.home_team_id)return; void supabase.from("players").select("id,first_name,last_name,jersey_number").eq("team_id",game.home_team_id).eq("active",true).order("jersey_number").then(({data})=>setPlayers(data||[])); },[game.home_team_id,supabase]);
 
   const required=pending==="error"||pending==="out"?1:pending==="double_play"?2:pending==="triple_play"?3:0;
-  const activeBatter=players.find(p=>p.id===batterId);
+  const activeBatter=scoringPlayers.find(p=>p.player_id===batterId);
   async function record(result:string,selected:string[]=[]) {
     setSaving(true);setMessage("");
     const details={...(result==="error"?{error_position:selected[0]}:Object.fromEntries(selected.map((position,index)=>[`out_position_${index+1}`,position]))),...(batterId?{batter_id:batterId}:{})};
@@ -62,12 +101,21 @@ export function ScoringConsole({ initialGame,initialEvents,canScore }: { initial
 
         <main>
 
-          <div className="liveLabel">
-            {game.status==="live"
-              ? "● Live scorecast"
-              : game.status==="final"
-                ? "Final"
-                : "Scheduled"} · {game.venue||"GameDay Field"}
+          <div className="pageHead" style={{ alignItems: "center", marginBottom: 8 }}>
+            <div className="liveLabel">
+              {game.status==="live"
+                ? "● Live scorecast"
+                : game.status==="final"
+                  ? "Final"
+                  : "Scheduled"} · {game.venue||"GameDay Field"}
+            </div>
+
+            <a
+              className="button secondary"
+              href={`/dashboard/games/${game.id}/stats`}
+            >
+              Stats
+            </a>
           </div>
 
 
@@ -94,21 +142,27 @@ export function ScoringConsole({ initialGame,initialEvents,canScore }: { initial
 
               <div className="batterPicker">
 
-                {game.half==="bottom"&&players.length>0&&(
-                  <select
-                    value={batterId||""}
-                    onChange={e=>setBatterId(e.target.value||null)}
-                    disabled={!canScore||saving||game.status==="final"}
-                  >
-                    <option value="">Select batter</option>
+                {game.half==="bottom"&&scoringPlayers.length>0&&(
+                  initialLineup.length > 0 ? (
+                    <span className="notice">
+                      Batting order · {activeBatter?.batting_order ?? 1}
+                    </span>
+                  ) : (
+                    <select
+                      value={batterId||""}
+                      onChange={e=>setBatterId(e.target.value||null)}
+                      disabled={!canScore||saving||game.status==="final"}
+                    >
+                      <option value="">Select batter</option>
 
-                    {players.map(p=>(
-                      <option key={p.id} value={p.id}>
-                        #{p.jersey_number} {p.first_name} {p.last_name}
-                      </option>
-                    ))}
+                      {scoringPlayers.map(p=>(
+                        <option key={p.player_id} value={p.player_id}>
+                          #{p.jersey_number} {p.first_name} {p.last_name}
+                        </option>
+                      ))}
 
-                  </select>
+                    </select>
+                  )
                 )}
 
               </div>
